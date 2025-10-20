@@ -12,24 +12,26 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up .NET Core
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: 8.x
 
-      - name: Build solution
-        run: dotnet build src/ExpenseTrackerApi/ExpenseTracker.sln --configuration Release
+      - name: Restore dependencies
+        run: dotnet restore src/ExpenseTrackerApi/ExpenseTrackerApi.csproj
+
+      - name: Build
+        run: dotnet build src/ExpenseTrackerApi/ExpenseTrackerApi.csproj --configuration Release --no-restore
 
       - name: Publish
-        run: dotnet publish src/ExpenseTrackerApi/ExpenseTracker.sln -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+        run: dotnet publish src/ExpenseTrackerApi/ExpenseTrackerApi.csproj --configuration Release --no-build --output "${{env.DOTNET_ROOT}}/myapp"
 
-      - name: Upload artifact for deployment job
+      - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
@@ -38,17 +40,14 @@ jobs:
   deploy:
     runs-on: windows-latest
     needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: .net-app
-      
-      - name: Login to Azure
+
+      - name: Azure login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9997E1953FC542D9ABBFFB1E74F7FFBA }}
@@ -56,9 +55,9 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C0B401EE23DD4305B9BEB9A1E8CA75AF }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'expensetrackerAPi'
-          slot-name: 'Production'
           package: .
+
+
